@@ -16,6 +16,21 @@ version 2021-06-24
 - Easy to use: A user just remembers and uses only two API functions; ```makeAndSaveScancontextAndKeys``` and ```detectLoopClosureID```.
 - Fast: A single loop detection requires under 30 ms (for 20 x 60 size, 3 candidates)
 
+## Dependency
+
+This is the original ROS1 implementation of LIO-SAM. For a ROS2 implementation see branch `ros2`.
+
+- [ROS](http://wiki.ros.org/ROS/Installation) (tested with Kinetic and Melodic. Refer to [#206](https://github.com/TixiaoShan/LIO-SAM/issues/206) for Noetic)
+  ```
+  sudo apt-get install -y ros-kinetic-navigation
+  sudo apt-get install -y ros-kinetic-robot-localization
+  sudo apt-get install -y ros-kinetic-robot-state-publisher
+  ```
+- [gtsam](https://gtsam.org/get_started/) (Georgia Tech Smoothing and Mapping library)
+  ```
+  sudo add-apt-repository ppa:borglab/gtsam-release-4.0
+  sudo apt install libgtsam-dev libgtsam-unstable-dev
+  ```
 
 ## Examples
 
