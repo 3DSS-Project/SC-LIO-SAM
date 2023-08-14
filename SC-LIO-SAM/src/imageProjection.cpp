@@ -14,6 +14,33 @@ POINT_CLOUD_REGISTER_POINT_STRUCT (VelodynePointXYZIRT,
     (uint16_t, ring, ring) (float, time, time)
 )
 
+// Added by Doncey A
+struct OusterPointXYZIRTLabel {
+    PCL_ADD_POINT4D;
+    float intensity;
+    uint32_t t;
+    uint16_t reflectivity;
+    uint8_t ring;
+    uint16_t noise;
+    uint32_t range;
+    uint16_t label;          // Newly added label field
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+} EIGEN_ALIGN16;
+
+// Added by Doncey A
+POINT_CLOUD_REGISTER_POINT_STRUCT(OusterPointXYZIRTLabel,
+    (float, x, x)
+    (float, y, y)
+    (float, z, z)
+    (float, intensity, intensity)
+    (uint32_t, t, t)
+    (uint16_t, reflectivity, reflectivity)
+    (uint8_t, ring, ring)
+    (uint16_t, noise, noise)
+    (uint32_t, range, range)
+    (uint16_t, label, label)  // Newly added label field
+)
+
 struct OusterPointXYZIRT {
     PCL_ADD_POINT4D;
     float intensity;
@@ -81,6 +108,7 @@ private:
 
     pcl::PointCloud<PointXYZIRT>::Ptr laserCloudIn;
     pcl::PointCloud<OusterPointXYZIRT>::Ptr tmpOusterCloudIn;
+    pcl::PointCloud<OusterPointXYZIRTLabel>::Ptr tmpSemanticCloudIn; // Added by Doncey A
     pcl::PointCloud<MulranPointXYZIRT>::Ptr tmpMulranCloudIn;
     pcl::PointCloud<PointType>::Ptr   fullCloud;
     pcl::PointCloud<PointType>::Ptr   extractedCloud;
@@ -227,6 +255,7 @@ public:
         else if (sensor == SensorType::OUSTER)
         {
             // Convert to Velodyne format
+            ROS_INFO("converting to velodyne format! \n\n");                                              // Added by Doncey
             pcl::moveFromROSMsg(currentCloudMsg, *tmpOusterCloudIn);
             laserCloudIn->points.resize(tmpOusterCloudIn->size());
             laserCloudIn->is_dense = tmpOusterCloudIn->is_dense;
