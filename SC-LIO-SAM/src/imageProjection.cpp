@@ -113,6 +113,7 @@ private:
     std::deque<sensor_msgs::PointCloud2> cloudQueue;
     std::deque<sensor_msgs::PointCloud2> semanticCloudQueue;            // Added by Doncey A.
     sensor_msgs::PointCloud2 currentCloudMsg;
+    sensor_msgs::PointCloud2 currentSemanticCloudMsg;                   // Added by Doncey A.
 
     double *imuTime = new double[queueLength];
     double *imuRotX = new double[queueLength];
@@ -187,7 +188,7 @@ public:
 
     void resetParameters()
     {
-        laserCloudInSemantic->clear()       // Added by Doncey A.
+        laserCloudInSemantic->clear();       // Added by Doncey A.
         laserCloudIn->clear();
         extractedCloud->clear();
         // reset range matrix for range image projection
@@ -272,12 +273,12 @@ public:
         // convert cloud
         currentCloudMsg = std::move(cloudQueue.front());
         currentSemanticCloudMsg = std::move(semanticCloudQueue.front());    // Added by Doncey A.
-
+        
         cloudHeader = currentCloudMsg.header;
         timeScanCur = cloudHeader.stamp.toSec();
-        
-        int timestamp_sec = currentCloudMsg.header.stamp.sec;
-        int timestamp_nsec = currentCloudMsg.header.stamp.nsec;
+
+        int timestamp_sec = currentSemanticCloudMsg.header.stamp.sec;       // Added by Doncey A.
+        int timestamp_nsec = currentSemanticCloudMsg.header.stamp.nsec;     // Added by Doncey A.
 
         cloudQueue.pop_front();
 
@@ -376,7 +377,7 @@ public:
 
         // get timestamps
         timeScanEnd = timeScanCur + laserCloudIn->points.back().time;
-        timeSemanticScanEnd = timeScanCur + laserCloudInSemantic->points.back().time;   // Added by Doncey A.
+        //timeSemanticScanEnd = timeScanCur + laserCloudInSemantic->points.back().time;   // Added by Doncey A.
 
         // check dense flag
         if (laserCloudIn->is_dense == false)
