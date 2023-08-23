@@ -102,7 +102,7 @@ private:
     ros::Publisher pubExtractedCloud;
     ros::Publisher pubLaserCloudInfo;
 
-    ros::Publisher pubSemanticCloud;
+    ros::Publisher pubSemanticCloud;                                    // Added by Doncey A.
     
     ros::Subscriber subImu;
     std::deque<sensor_msgs::Imu> imuQueue;
@@ -111,6 +111,7 @@ private:
     std::deque<nav_msgs::Odometry> odomQueue;
 
     std::deque<sensor_msgs::PointCloud2> cloudQueue;
+    std::deque<sensor_msgs::PointCloud2> semanticCloudQueue;            // Added by Doncey A.
     sensor_msgs::PointCloud2 currentCloudMsg;
 
     double *imuTime = new double[queueLength];
@@ -122,8 +123,8 @@ private:
     bool firstPointFlag;
     Eigen::Affine3f transStartInverse;
 
-    // pcl::PointCloud<PointXYZIRT>::Ptr laserCloudIn;                  // Commented out for testing
-    pcl::PointCloud<PointXYZIRTLabel>::Ptr laserCloudIn;                // Adjusted by Doncey A.
+    pcl::PointCloud<PointXYZIRT>::Ptr laserCloudIn;                     
+    pcl::PointCloud<PointXYZIRTLabel>::Ptr laserCloudInSemantic;        // Added by Doncey A.
     pcl::PointCloud<OusterPointXYZIRT>::Ptr tmpOusterCloudIn;
     pcl::PointCloud<OusterPointXYZIRTLabel>::Ptr tmpSemanticCloudIn;    // Added by Doncey A.
     pcl::PointCloud<MulranPointXYZIRT>::Ptr tmpMulranCloudIn;
@@ -164,8 +165,8 @@ public:
 
     void allocateMemory()
     {
-        //laserCloudIn.reset(new pcl::PointCloud<PointXYZIRT>());
-        laserCloudIn.reset(new pcl::PointCloud<PointXYZIRTLabel>());            // Adjusted by Doncey A.
+        laserCloudIn.reset(new pcl::PointCloud<PointXYZIRT>());
+        laserCloudInSemantic.reset(new pcl::PointCloud<PointXYZIRTLabel>());     // Added by Doncey A.
         tmpOusterCloudIn.reset(new pcl::PointCloud<OusterPointXYZIRT>());
         tmpSemanticCloudIn.reset(new pcl::PointCloud<OusterPointXYZIRTLabel>()); // Added by Doncey A.
         tmpMulranCloudIn.reset(new pcl::PointCloud<MulranPointXYZIRT>());
@@ -186,6 +187,7 @@ public:
 
     void resetParameters()
     {
+        laserCloudInSemantic->clear()       // Added by Doncey A.
         laserCloudIn->clear();
         extractedCloud->clear();
         // reset range matrix for range image projection
@@ -247,11 +249,13 @@ public:
 
         projectPointCloud();
     
-        displayRangeMatAsImage(rangeMat); // Added by Doncey for testing
+        //displayRangeMatAsImage(rangeMat);   // Added by Doncey for testing
     
         cloudExtraction();
 
         publishClouds();
+        
+        publishSemanticCloud();             // Added by Doncey A.
 
         resetParameters();
     }
@@ -260,11 +264,14 @@ public:
     {
         // cache point cloud
         cloudQueue.push_back(*laserCloudMsg);
+        semanticCloudQueue.push_back(*laserCloudMsg); // Added by Doncey A.
+
         if (cloudQueue.size() <= 2)
             return false;
 
         // convert cloud
         currentCloudMsg = std::move(cloudQueue.front());
+        currentSemanticCloudMsg = std::move(semanticCloudQueue.front());    // Added by Doncey A.
 
         cloudHeader = currentCloudMsg.header;
         timeScanCur = cloudHeader.stamp.toSec();
@@ -280,8 +287,7 @@ public:
         }
         else if (sensor == SensorType::OUSTER)
         {
-            /* Convert to Velodyne format
-            ROS_INFO("converting to velodyne format! \n\n");                            // Added by Doncey
+            // Convert to Velodyne format
             pcl::moveFromROSMsg(currentCloudMsg, *tmpOusterCloudIn);
             laserCloudIn->points.resize(tmpOusterCloudIn->size());
             laserCloudIn->is_dense = tmpOusterCloudIn->is_dense;
@@ -312,26 +318,14 @@ public:
             filename_ss << file_path << timestamp_sec << "_" << timestamp_nsec << ".label";
             filename = filename_ss.str();
 
-            // Check if the file exists
-            std::ifstream infile(filename);
-
-            if (infile.good())
-            {
-                std::cout << "File " << filename << " exists." << std::endl;
-            }
-            else
-            {
-                std::cout << "File " << filename << " does not exist." << std::endl;
-
-                // If you want to create it
-                //std::ofstream outfile(filename);
-            }
-
             std::ifstream file(filename, std::ios::binary | std::ios::ate);
 
             if (!file.is_open()) {
                 std::cerr << "Failed to open file." << std::endl;
                 return -1;
+            }
+            else {
+                semanticCloudQueue.pop_front();
             }
 
             std::streamsize size = file.tellg();
@@ -340,33 +334,13 @@ public:
             file.seekg(0, std::ios::beg);
             file.read(reinterpret_cast<char*>(labels.data()), size);
 
-            /*
-            if (size % sizeof(int32_t) != 0) {
-                std::cerr << "File size doesn't match expected label data size." << std::endl;
-                return -1;
-            }
-
-            if (file.read(reinterpret_cast<char*>(labels.data()), size)) {
-                // Now, labels vector is filled with the data.
-                // You can process the labels as needed.
-                
-                // For demonstration: print the first 10 labels.
-                //for (size_t i = 0; i < 10 && i < labels.size(); ++i) {
-                //    std::cout << labels[i] << " ";
-                //}
-                //std::cout << std::endl;
-            } else {
-                std::cerr << "Error reading file." << std::endl;
-            }
-            */
-
-            pcl::moveFromROSMsg(currentCloudMsg, *tmpSemanticCloudIn);
-            laserCloudIn->points.resize(tmpSemanticCloudIn->size());
-            laserCloudIn->is_dense = tmpSemanticCloudIn->is_dense;
+            pcl::moveFromROSMsg(currentSemanticCloudMsg, *tmpSemanticCloudIn);
+            laserCloudInSemantic->points.resize(tmpSemanticCloudIn->size());
+            laserCloudInSemantic->is_dense = tmpSemanticCloudIn->is_dense;
             for (size_t i = 0; i < tmpSemanticCloudIn->size(); i++)
             {
                 auto &src = tmpSemanticCloudIn->points[i];
-                auto &dst = laserCloudIn->points[i];
+                auto &dst = laserCloudInSemantic->points[i];
                 dst.x = src.x;
                 dst.y = src.y;
                 dst.z = src.z;
@@ -400,8 +374,9 @@ public:
             ros::shutdown();
         }
 
-        // get timestamp
+        // get timestamps
         timeScanEnd = timeScanCur + laserCloudIn->points.back().time;
+        timeSemanticScanEnd = timeScanCur + laserCloudInSemantic->points.back().time;   // Added by Doncey A.
 
         // check dense flag
         if (laserCloudIn->is_dense == false)
@@ -780,16 +755,22 @@ public:
         cloudInfo.header = cloudHeader;
         cloudInfo.cloud_deskewed  = publishCloud(&pubExtractedCloud, extractedCloud, cloudHeader.stamp, lidarFrame);
         pubLaserCloudInfo.publish(cloudInfo);
+    }
 
-        // Added by Doncey A.
+    /*
+        Added by Doncey A.
+    */ 
+    void publishSemanticCloud()
+    {
         sensor_msgs::PointCloud2 tempCloud;
-        pcl::toROSMsg(*laserCloudIn, tempCloud);
+        pcl::toROSMsg(*laserCloudInSemantic, tempCloud);
         tempCloud.header.stamp = cloudHeader.stamp;
         tempCloud.header.frame_id = lidarFrame;
         //if (pubSemanticCloud->getNumSubscribers() != 0)
         //    thisPub->publish(tempCloud);
         pubSemanticCloud.publish(tempCloud);
     }
+
 };
 
 int main(int argc, char** argv)
