@@ -15,6 +15,21 @@ POINT_CLOUD_REGISTER_POINT_STRUCT (VelodynePointXYZIRT,
 )
 
 // Added by Doncey A
+struct VelodynePointXYZIRTLabel
+{
+    PCL_ADD_POINT4D
+    PCL_ADD_INTENSITY;
+    uint16_t ring;
+    float time;
+    int32_t label;          // Newly added label field
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+} EIGEN_ALIGN16;
+POINT_CLOUD_REGISTER_POINT_STRUCT (VelodynePointXYZIRTLabel,
+    (float, x, x) (float, y, y) (float, z, z) (float, intensity, intensity)
+    (uint16_t, ring, ring) (float, time, time) (int32_t, label, label)
+)
+
+// Added by Doncey A
 struct OusterPointXYZIRTLabel {
     PCL_ADD_POINT4D;
     float intensity;
@@ -23,11 +38,9 @@ struct OusterPointXYZIRTLabel {
     uint8_t ring;
     uint16_t noise;
     uint32_t range;
-    uint16_t label;          // Newly added label field
+    int32_t label;          // Newly added label field
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 } EIGEN_ALIGN16;
-
-// Added by Doncey A
 POINT_CLOUD_REGISTER_POINT_STRUCT(OusterPointXYZIRTLabel,
     (float, x, x)
     (float, y, y)
@@ -38,7 +51,7 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(OusterPointXYZIRTLabel,
     (uint8_t, ring, ring)
     (uint16_t, noise, noise)
     (uint32_t, range, range)
-    (uint16_t, label, label)  // Newly added label field
+    (int32_t, label, label)  // Newly added label field
 )
 
 struct OusterPointXYZIRT {
@@ -72,6 +85,7 @@ struct MulranPointXYZIRT { // from the file player's topic https://github.com/ir
 
 // Use the Velodyne point format as a common representation
 using PointXYZIRT = VelodynePointXYZIRT;
+using PointXYZIRTLabel = VelodynePointXYZIRTLabel; // Added by Doncey A.
 
 const int queueLength = 2000;
 
@@ -88,6 +102,8 @@ private:
     ros::Publisher pubExtractedCloud;
     ros::Publisher pubLaserCloudInfo;
 
+    ros::Publisher pubSemanticCloud;
+    
     ros::Subscriber subImu;
     std::deque<sensor_msgs::Imu> imuQueue;
 
@@ -106,9 +122,10 @@ private:
     bool firstPointFlag;
     Eigen::Affine3f transStartInverse;
 
-    pcl::PointCloud<PointXYZIRT>::Ptr laserCloudIn;
+    // pcl::PointCloud<PointXYZIRT>::Ptr laserCloudIn;                  // Commented out for testing
+    pcl::PointCloud<PointXYZIRTLabel>::Ptr laserCloudIn;                // Adjusted by Doncey A.
     pcl::PointCloud<OusterPointXYZIRT>::Ptr tmpOusterCloudIn;
-    pcl::PointCloud<OusterPointXYZIRTLabel>::Ptr tmpSemanticCloudIn; // Added by Doncey A
+    pcl::PointCloud<OusterPointXYZIRTLabel>::Ptr tmpSemanticCloudIn;    // Added by Doncey A.
     pcl::PointCloud<MulranPointXYZIRT>::Ptr tmpMulranCloudIn;
     pcl::PointCloud<PointType>::Ptr   fullCloud;
     pcl::PointCloud<PointType>::Ptr   extractedCloud;
@@ -126,7 +143,6 @@ private:
     double timeScanEnd;
     std_msgs::Header cloudHeader;
 
-
 public:
     ImageProjection():
     deskewFlag(0)
@@ -138,6 +154,8 @@ public:
         pubExtractedCloud = nh.advertise<sensor_msgs::PointCloud2> ("sc_lio_sam/deskew/cloud_deskewed", 1);
         pubLaserCloudInfo = nh.advertise<sc_lio_sam::cloud_info> ("sc_lio_sam/deskew/cloud_info", 1);
 
+        pubSemanticCloud = nh.advertise<sensor_msgs::PointCloud2> ("sc_lio_sam/semantic_cloud", 1);
+
         allocateMemory();
         resetParameters();
 
@@ -146,9 +164,12 @@ public:
 
     void allocateMemory()
     {
-        laserCloudIn.reset(new pcl::PointCloud<PointXYZIRT>());
+        //laserCloudIn.reset(new pcl::PointCloud<PointXYZIRT>());
+        laserCloudIn.reset(new pcl::PointCloud<PointXYZIRTLabel>());            // Adjusted by Doncey A.
         tmpOusterCloudIn.reset(new pcl::PointCloud<OusterPointXYZIRT>());
+        tmpSemanticCloudIn.reset(new pcl::PointCloud<OusterPointXYZIRTLabel>()); // Added by Doncey A.
         tmpMulranCloudIn.reset(new pcl::PointCloud<MulranPointXYZIRT>());
+        
         fullCloud.reset(new pcl::PointCloud<PointType>());
         extractedCloud.reset(new pcl::PointCloud<PointType>());
 
@@ -225,7 +246,9 @@ public:
             return;
 
         projectPointCloud();
-
+    
+        displayRangeMatAsImage(rangeMat); // Added by Doncey for testing
+    
         cloudExtraction();
 
         publishClouds();
@@ -245,6 +268,9 @@ public:
 
         cloudHeader = currentCloudMsg.header;
         timeScanCur = cloudHeader.stamp.toSec();
+        
+        int timestamp_sec = currentCloudMsg.header.stamp.sec;
+        int timestamp_nsec = currentCloudMsg.header.stamp.nsec;
 
         cloudQueue.pop_front();
 
@@ -254,8 +280,8 @@ public:
         }
         else if (sensor == SensorType::OUSTER)
         {
-            // Convert to Velodyne format
-            ROS_INFO("converting to velodyne format! \n\n");                                              // Added by Doncey
+            /* Convert to Velodyne format
+            ROS_INFO("converting to velodyne format! \n\n");                            // Added by Doncey
             pcl::moveFromROSMsg(currentCloudMsg, *tmpOusterCloudIn);
             laserCloudIn->points.resize(tmpOusterCloudIn->size());
             laserCloudIn->is_dense = tmpOusterCloudIn->is_dense;
@@ -269,6 +295,85 @@ public:
                 dst.intensity = src.intensity;
                 dst.ring = src.ring;
                 dst.time = src.t * 1e-9f;
+            }
+        
+
+            /*
+                Added by Doncey A.
+
+                Check if label for header exists.
+            */
+            // Check if label is available           
+            ROS_INFO("Adding semantics! \n\n");
+            // Path to access binary semantic labels
+            std::stringstream filename_ss;
+            std::string file_path = "/home/arpg/hunter_ws/src/ce_net_ros/src/predictions/07_17_2023/";
+            std::string filename;
+            filename_ss << file_path << timestamp_sec << "_" << timestamp_nsec << ".label";
+            filename = filename_ss.str();
+
+            // Check if the file exists
+            std::ifstream infile(filename);
+
+            if (infile.good())
+            {
+                std::cout << "File " << filename << " exists." << std::endl;
+            }
+            else
+            {
+                std::cout << "File " << filename << " does not exist." << std::endl;
+
+                // If you want to create it
+                //std::ofstream outfile(filename);
+            }
+
+            std::ifstream file(filename, std::ios::binary | std::ios::ate);
+
+            if (!file.is_open()) {
+                std::cerr << "Failed to open file." << std::endl;
+                return -1;
+            }
+
+            std::streamsize size = file.tellg();
+            std::vector<int32_t> labels(size / sizeof(int32_t));
+
+            file.seekg(0, std::ios::beg);
+            file.read(reinterpret_cast<char*>(labels.data()), size);
+
+            /*
+            if (size % sizeof(int32_t) != 0) {
+                std::cerr << "File size doesn't match expected label data size." << std::endl;
+                return -1;
+            }
+
+            if (file.read(reinterpret_cast<char*>(labels.data()), size)) {
+                // Now, labels vector is filled with the data.
+                // You can process the labels as needed.
+                
+                // For demonstration: print the first 10 labels.
+                //for (size_t i = 0; i < 10 && i < labels.size(); ++i) {
+                //    std::cout << labels[i] << " ";
+                //}
+                //std::cout << std::endl;
+            } else {
+                std::cerr << "Error reading file." << std::endl;
+            }
+            */
+
+            pcl::moveFromROSMsg(currentCloudMsg, *tmpSemanticCloudIn);
+            laserCloudIn->points.resize(tmpSemanticCloudIn->size());
+            laserCloudIn->is_dense = tmpSemanticCloudIn->is_dense;
+            for (size_t i = 0; i < tmpSemanticCloudIn->size(); i++)
+            {
+                auto &src = tmpSemanticCloudIn->points[i];
+                auto &dst = laserCloudIn->points[i];
+                dst.x = src.x;
+                dst.y = src.y;
+                dst.z = src.z;
+                dst.intensity = src.intensity;
+                dst.ring = src.ring;
+                dst.time = src.t * 1e-9f;
+                dst.label = labels[i];          // Add label Field to point
             }
         }
         else if (sensor == SensorType::MULRAN)
@@ -626,6 +731,24 @@ public:
         }
     }
 
+    // Added by Doncey A.
+    void displayRangeMatAsImage(const cv::Mat& rangeMat) {
+        // Clone the rangeMat to avoid modifying original data
+        cv::Mat visualizedRangeMat = rangeMat.clone();
+    
+        // Normalize the matrix values to 0-255 for visualization
+        double min, max;
+        cv::minMaxLoc(visualizedRangeMat, &min, &max); // Find min and max values
+        visualizedRangeMat = 255 * (visualizedRangeMat - min) / (max - min);
+    
+        // Convert the matrix to 8-bit
+        visualizedRangeMat.convertTo(visualizedRangeMat, CV_8U);
+    
+        // Display the image, if desired
+        cv::imshow("Range Image", visualizedRangeMat);
+        cv::waitKey(1);
+    }
+
     void cloudExtraction()
     {
         int count = 0;
@@ -657,6 +780,15 @@ public:
         cloudInfo.header = cloudHeader;
         cloudInfo.cloud_deskewed  = publishCloud(&pubExtractedCloud, extractedCloud, cloudHeader.stamp, lidarFrame);
         pubLaserCloudInfo.publish(cloudInfo);
+
+        // Added by Doncey A.
+        sensor_msgs::PointCloud2 tempCloud;
+        pcl::toROSMsg(*laserCloudIn, tempCloud);
+        tempCloud.header.stamp = cloudHeader.stamp;
+        tempCloud.header.frame_id = lidarFrame;
+        //if (pubSemanticCloud->getNumSubscribers() != 0)
+        //    thisPub->publish(tempCloud);
+        pubSemanticCloud.publish(tempCloud);
     }
 };
 
