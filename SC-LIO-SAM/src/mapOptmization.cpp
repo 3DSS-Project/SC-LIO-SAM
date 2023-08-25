@@ -75,6 +75,18 @@ POINT_CLOUD_REGISTER_POINT_STRUCT (PointXYZIRPYT,
                                    (float, roll, roll) (float, pitch, pitch) (float, yaw, yaw)
                                    (double, time, time))
 
+// Added by Doncey A
+struct PointXYZIRTLabel
+{
+    PCL_ADD_POINT4D
+    PCL_ADD_INTENSITY;
+    int32_t label;          // Newly added label field
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+} EIGEN_ALIGN16;
+POINT_CLOUD_REGISTER_POINT_STRUCT (PointXYZIRTLabel,
+    (float, x, x) (float, y, y) (float, z, z) (float, intensity, intensity) (int32_t, label, label)
+)
+
 typedef PointXYZIRPYT  PointTypePose;
 
 // giseop
@@ -230,6 +242,8 @@ public:
 
         pubHistoryKeyFrames   = nh.advertise<sensor_msgs::PointCloud2>("sc_lio_sam/mapping/icp_loop_closure_history_cloud", 1);
         pubIcpKeyFrames       = nh.advertise<sensor_msgs::PointCloud2>("sc_lio_sam/mapping/icp_loop_closure_corrected_cloud", 1);
+
+        // TODO: Checkout the vis_msgs library
         pubLoopConstraintEdge = nh.advertise<visualization_msgs::MarkerArray>("/sc_lio_sam/mapping/loop_closure_constraints", 1);
 
         pubRecentKeyFrames    = nh.advertise<sensor_msgs::PointCloud2>("sc_lio_sam/mapping/map_local", 1);
@@ -948,6 +962,7 @@ public:
         *nearKeyframes = *cloud_temp;
     }
 
+    // Check out how this works and play with viz messages
     void visualizeLoopClosure()
     {
         visualization_msgs::MarkerArray markerArray;
@@ -1972,6 +1987,7 @@ public:
         // publish registered key frame
         if (pubRecentKeyFrame.getNumSubscribers() != 0)
         {
+            
             pcl::PointCloud<PointType>::Ptr cloudOut(new pcl::PointCloud<PointType>());
             PointTypePose thisPose6D = trans2PointTypePose(transformTobeMapped);
             *cloudOut += *transformPointCloud(laserCloudCornerLastDS,  &thisPose6D);
@@ -1988,6 +2004,7 @@ public:
             publishCloud(&pubCloudRegisteredRaw, cloudOut, timeLaserInfoStamp, odometryFrame);
         }
         // publish path
+        // TODO: save the frame_id and header stamp into a hash map
         if (pubPath.getNumSubscribers() != 0)
         {
             globalPath.header.stamp = timeLaserInfoStamp;
