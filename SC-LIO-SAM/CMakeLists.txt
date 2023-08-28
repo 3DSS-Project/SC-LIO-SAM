@@ -11,6 +11,8 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   cv_bridge
+  roslib  # for package path
+  
   # pcl library
   pcl_conversions
   # msgs

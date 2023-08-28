@@ -53,6 +53,8 @@
 #include <mutex>
 #include <sstream>
 
+#include <ros/package.h>
+
 using namespace std;
 
 typedef std::numeric_limits< double > dbl;

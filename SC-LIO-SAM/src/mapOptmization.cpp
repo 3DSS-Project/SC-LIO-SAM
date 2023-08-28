@@ -114,6 +114,8 @@ public:
     ros::Subscriber subGPS;
     ros::Subscriber subLoop;
 
+    ros::Publisher pubPoseEstimate;
+
     std::deque<nav_msgs::Odometry> gpsQueue;
     sc_lio_sam::cloud_info cloudInfo;
 
@@ -192,6 +194,8 @@ public:
 
     nav_msgs::Path globalPath;
 
+    geometry_msgs::PoseStamped poseEstimate;
+
     Eigen::Affine3f transPointAssociateToMap;
     Eigen::Affine3f incrementalOdometryAffineFront;
     Eigen::Affine3f incrementalOdometryAffineBack;
@@ -235,6 +239,8 @@ public:
         pubRecentKeyFrames    = nh.advertise<sensor_msgs::PointCloud2>("sc_lio_sam/mapping/map_local", 1);
         pubRecentKeyFrame     = nh.advertise<sensor_msgs::PointCloud2>("sc_lio_sam/mapping/cloud_registered", 1);
         pubCloudRegisteredRaw = nh.advertise<sensor_msgs::PointCloud2>("sc_lio_sam/mapping/cloud_registered_raw", 1);
+
+        pubPoseEstimate    = nh.advertise<geometry_msgs::PoseStamped>("sc_lio_sam/pose_estimate", 1);
 
         const float kSCFilterSize = 0.5; // giseop
         downSizeFilterSC.setLeafSize(kSCFilterSize, kSCFilterSize, kSCFilterSize); // giseop
@@ -1888,6 +1894,9 @@ public:
         pose_stamped.pose.orientation.w = q.w();
 
         globalPath.poses.push_back(pose_stamped);
+
+        pose_stamped.header.stamp = timeLaserInfoStamp;
+        poseEstimate = pose_stamped;
     }
 
     void publishOdometry()
@@ -1993,6 +2002,13 @@ public:
             globalPath.header.stamp = timeLaserInfoStamp;
             globalPath.header.frame_id = odometryFrame;
             pubPath.publish(globalPath);
+        }
+        // publish pose estimate
+        if (pubPoseEstimate.getNumSubscribers() != 0)
+        {
+            poseEstimate.header.stamp = timeLaserInfoStamp;
+            poseEstimate.header.frame_id = odometryFrame;
+            pubPoseEstimate.publish(poseEstimate);
         }
     }
 };
