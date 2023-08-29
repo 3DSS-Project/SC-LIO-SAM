@@ -1873,10 +1873,28 @@ public:
                 cloudKeyPoses6D->points[i].yaw   = isamCurrentEstimate.at<Pose3>(i).rotation().yaw();
 
                 updatePath(cloudKeyPoses6D->points[i]);
+                updateEstimatedPath(cloudKeyPoses6D->points[i]);
             }
 
             aLoopIsClosed = false;
         }
+    }
+
+    void updateEstimatedPath(const PointTypePose& pose_in)
+    {
+        geometry_msgs::PoseStamped pose_stamped;
+        pose_stamped.header.stamp = timeLaserInfoStamp;
+        pose_stamped.header.frame_id = odometryFrame;
+        pose_stamped.pose.position.x = pose_in.x;
+        pose_stamped.pose.position.y = pose_in.y;
+        pose_stamped.pose.position.z = pose_in.z;
+        tf::Quaternion q = tf::createQuaternionFromRPY(pose_in.roll, pose_in.pitch, pose_in.yaw);
+        pose_stamped.pose.orientation.x = q.x();
+        pose_stamped.pose.orientation.y = q.y();
+        pose_stamped.pose.orientation.z = q.z();
+        pose_stamped.pose.orientation.w = q.w();
+
+        poseEstimate = pose_stamped;
     }
 
     void updatePath(const PointTypePose& pose_in)
@@ -1895,8 +1913,8 @@ public:
 
         globalPath.poses.push_back(pose_stamped);
 
-        pose_stamped.header.stamp = timeLaserInfoStamp;
-        poseEstimate = pose_stamped;
+        //pose_stamped.header.stamp = timeLaserInfoStamp;
+        //poseEstimate = pose_stamped;
     }
 
     void publishOdometry()
