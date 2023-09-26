@@ -8,7 +8,7 @@
 sc_lio_sam:
   # Topics
   pointCloudTopic: "ouster/points"        # Point cloud data
-  imuTopic: "imu/data"                    # IMU data
+  imuTopic: "imu/data"                    # was imu/data ... WHY NOT NOW :()
   odomTopic: "nav/filtered_imu/data"      # IMU pre-preintegration odometry, same frequency as IMU
   gpsTopic: "odometry/gpsz"               # GPS odometry topic from navsat, see module_navsat.launch file
 
@@ -46,7 +46,7 @@ sc_lio_sam:
 
   # Extrinsics: T_lb (lidar -> imu)
   #extrinsicTrans: [0.0, 0.0508, -0.0254]
-  extrinsicTrans: [0, 0.0, 0]
+  extrinsicTrans: [0.00, 0.00, 0.00]
 
   extrinsicRot: [0, 1, 0,
                  1, 0, 0,
@@ -72,7 +72,7 @@ sc_lio_sam:
 
   # CPU Params
   numberOfCores: 8                              # number of cores for mapping optimization
-  mappingProcessInterval: 0.05                  # seconds, regulate mapping frequency
+  mappingProcessInterval: 0.15                  # seconds, regulate mapping frequency
 
   # Surrounding map
   surroundingkeyframeAddingDistThreshold: 1.0   # meters, regulate keyframe adding threshold
@@ -92,7 +92,7 @@ sc_lio_sam:
   # Visualization
   globalMapVisualizationSearchRadius: 1000.0    # meters, global map visualization radius
   globalMapVisualizationPoseDensity: 10.0       # meters, global map visualization keyframe density
-  globalMapVisualizationLeafSize: 1.0           # meters, global map visualization cloud density
+  globalMapVisualizationLeafSize: 0.2           # meters, global map visualization cloud density
 
 
 
