@@ -46,7 +46,7 @@ sc_lio_sam:
 
   # Extrinsics: T_lb (lidar -> imu)
   #extrinsicTrans: [0.0, 0.0508, -0.0254]
-  extrinsicTrans: [0.00, 0.00, 0.00]
+  extrinsicTrans: [0.00, -0.0508, 0.0254]
 
   extrinsicRot: [0, 1, 0,
                  1, 0, 0,
@@ -72,7 +72,7 @@ sc_lio_sam:
 
   # CPU Params
   numberOfCores: 8                              # number of cores for mapping optimization
-  mappingProcessInterval: 0.15                  # seconds, regulate mapping frequency
+  mappingProcessInterval: 0.05                   # seconds, regulate mapping frequency
 
   # Surrounding map
   surroundingkeyframeAddingDistThreshold: 1.0   # meters, regulate keyframe adding threshold
